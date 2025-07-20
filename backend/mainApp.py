@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 from typing import Dict, List, Optional, Any
 
-from flask import Flask, jsonify, request, abort, make_response
+from flask import Flask, jsonify, request, abort, make_response, send_from_directory
 from flask_cors import CORS
 from werkzeug.exceptions import HTTPException
 import requests
@@ -28,10 +28,10 @@ app = Flask(__name__)
 # Load configuration
 config = get_config()
 app.config.from_object(config)
+init_db()  # Ensure DB tables are created before serving requests
 
-# Initialize CORS if enabled
-if config.CORS_ENABLED:
-    CORS(app, origins=config.CORS_ORIGINS)
+# Enable CORS for all origins (for local dev)
+CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
 # Configure logging
 logging.basicConfig(
@@ -447,6 +447,16 @@ def news_by_region(region):
     """Get news filtered by region."""
     news = get_news_by_region(region, limit=20)
     return jsonify({"news": news})
+
+# Serve static files from the frontend directory
+@app.route('/')
+@app.route('/<path:path>')
+def serve_frontend(path='index.html'):
+    frontend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../frontend'))
+    if path != "" and os.path.exists(os.path.join(frontend_dir, path)):
+        return send_from_directory(frontend_dir, path)
+    else:
+        return send_from_directory(frontend_dir, 'index.html')
 
 if __name__ == '__main__':
     # Validate configuration on startup
