@@ -30,6 +30,10 @@ window.currentFilters = {};
 // Region filter
 regionFilter.addEventListener('click', e => {
   if (e.target.classList.contains('region-btn')) {
+    // Remove 'active' from all region buttons
+    regionFilter.querySelectorAll('.region-btn').forEach(btn => btn.classList.remove('active'));
+    // Add 'active' to the clicked button
+    e.target.classList.add('active');
     window.currentFilters.region = e.target.dataset.region;
     fetchAndUpdate();
   }
@@ -37,6 +41,8 @@ regionFilter.addEventListener('click', e => {
 // Event type filter
 eventTypeFilter.addEventListener('click', e => {
   if (e.target.classList.contains('event-btn')) {
+    eventTypeFilter.querySelectorAll('.event-btn').forEach(btn => btn.classList.remove('active'));
+    e.target.classList.add('active');
     window.currentFilters.event_type = e.target.dataset.event;
     fetchAndUpdate();
   }
@@ -56,6 +62,9 @@ clearFiltersBtn.addEventListener('click', () => {
   window.currentFilters = {};
   searchInput.value = '';
   dateRange.value = '';
+  // Remove 'active' from all filter buttons
+  regionFilter.querySelectorAll('.region-btn').forEach(btn => btn.classList.remove('active'));
+  eventTypeFilter.querySelectorAll('.event-btn').forEach(btn => btn.classList.remove('active'));
   fetchAndUpdate();
 });
 

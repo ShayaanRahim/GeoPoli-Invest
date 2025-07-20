@@ -10,15 +10,20 @@ from .models import Base
 DB_URL = os.environ.get("DATABASE_URL", "sqlite:///geopoli_news.db")
 IS_SQLITE = DB_URL.startswith("sqlite")
 
-# Connection pooling for PostgreSQL, simple for SQLite
-engine = create_engine(
-    DB_URL,
-    poolclass=QueuePool if not IS_SQLITE else None,
-    pool_size=10 if not IS_SQLITE else None,
-    max_overflow=20 if not IS_SQLITE else None,
-    connect_args={"check_same_thread": False} if IS_SQLITE else {},
-    echo=False
-)
+if IS_SQLITE:
+    engine = create_engine(
+        DB_URL,
+        connect_args={"check_same_thread": False},
+        echo=False
+    )
+else:
+    engine = create_engine(
+        DB_URL,
+        poolclass=QueuePool,
+        pool_size=10,
+        max_overflow=20,
+        echo=False
+    )
 SessionLocal = scoped_session(sessionmaker(bind=engine))
 
 def init_db():

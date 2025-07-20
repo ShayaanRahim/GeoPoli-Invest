@@ -151,4 +151,10 @@ body.dark-theme {
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 0.98; transform: translateY(0); }
+}
+
+.region-btn.active, .event-btn.active {
+  background: var(--accent) !important;
+  color: #181a20 !important;
+  border-color: var(--accent) !important;
 } 

@@ -1,6 +1,6 @@
 import re
 from typing import List, Dict, Any
-from scrapers.news_api_client import GEO_KEYWORDS, REGIONS
+from backend.scrapers.news_api_client import GEO_KEYWORDS, REGIONS
 
 EVENT_TYPES = {
     "sanctions": ["sanction", "embargo", "ban"],
@@ -56,16 +56,17 @@ def process_article(article: Dict[str, Any]) -> Dict[str, Any]:
     countries, region = extract_countries_regions(text)
     event_type = categorize_event(text)
     sentiment = sentiment_analysis(text)
+    sentiment_score = 1.0 if sentiment == "positive" else -1.0 if sentiment == "negative" else 0.0
     return {
         "id": article.get("raw", {}).get("link", article.get("title", ""))[:64],  # crude unique id
         "title": article.get("title"),
         "content": article.get("content"),
         "source": article.get("source"),
         "publish_date": article.get("publish_date"),
+        "url": article.get("url"),
         "relevance_score": score,
         "region": region,
         "countries": countries,
         "event_type": event_type,
-        "market_sentiment": sentiment,
-        "affected_sectors": [],  # can be filled in later
+        "sentiment_score": sentiment_score,
     } 

@@ -15,12 +15,15 @@ from flask import Flask, jsonify, request, abort, make_response, send_from_direc
 from flask_cors import CORS
 from werkzeug.exceptions import HTTPException
 import requests
+import sys
 
-# Import our configuration
-from config import get_config, validate_required_keys, is_geopolitical_event, get_affected_sectors, get_sector_stocks
-from scrapers.news_api_client import fetch_news_from_newsdata, filter_geopolitical_news
-from analyzers.news_processor import process_article
-from database import init_db, store_news_articles, get_latest_news, get_news_by_region
+# Use package-relative imports for module execution
+from backend.config import get_config, validate_required_keys, is_geopolitical_event, get_affected_sectors, get_sector_stocks
+from backend.scrapers.news_api_client import fetch_news_from_newsdata, filter_geopolitical_news
+from backend.analyzers.news_processor import process_article
+from database.database import init_db, db_health_check
+from database.operations import get_news_by_region, bulk_insert_articles
+from utils.db_helpers import is_duplicate_article, validate_article_data
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -427,26 +430,47 @@ def validate_config():
             'message': str(e)
         }), 500
 
-@app.route('/api/news/refresh', methods=['POST'])
-def refresh_news():
-    """Trigger news collection and processing."""
-    raw_articles = fetch_news_from_newsdata(limit=20)
-    filtered = filter_geopolitical_news(raw_articles)
-    processed = [process_article(a) for a in filtered]
-    store_news_articles(processed)
-    return jsonify({"status": "success", "fetched": len(processed)})
+@app.route('/api/health/db')
+def health_check_db():
+    """Database health check endpoint"""
+    healthy = db_health_check()
+    return jsonify({"db_healthy": healthy}), (200 if healthy else 500)
 
 @app.route('/api/news/latest')
 def latest_news():
-    """Get latest processed news."""
-    news = get_latest_news(limit=20)
-    return jsonify({"news": news})
+    """Get latest processed news from the database."""
+    try:
+        # For demo, get all regions (could add pagination)
+        news = get_news_by_region(region=None, limit=20)
+        # Convert SQLAlchemy objects to dicts
+        news_dicts = [n.__dict__ for n in news]
+        for n in news_dicts:
+            n.pop('_sa_instance_state', None)
+        return jsonify({"news": news_dicts})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/news/by-region/<region>')
 def news_by_region(region):
-    """Get news filtered by region."""
-    news = get_news_by_region(region, limit=20)
-    return jsonify({"news": news})
+    try:
+        news = get_news_by_region(region, limit=20)
+        news_dicts = [n.__dict__ for n in news]
+        for n in news_dicts:
+            n.pop('_sa_instance_state', None)
+        return jsonify({"news": news_dicts})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/news/refresh', methods=['POST'])
+def refresh_news():
+    """Trigger news collection, processing, and DB insert."""
+    raw_articles = fetch_news_from_newsdata(limit=20)
+    filtered = filter_geopolitical_news(raw_articles)
+    processed = [process_article(a) for a in filtered if validate_article_data(a)]
+    # Remove duplicates
+    unique = [a for a in processed if not is_duplicate_article(a.get('url'))]
+    bulk_insert_articles(unique)
+    return jsonify({"status": "success", "fetched": len(unique)})
 
 # Serve static files from the frontend directory
 @app.route('/')
